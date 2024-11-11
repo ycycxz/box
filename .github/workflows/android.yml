@@ -1,0 +1,61 @@
+name: Android CI
+
+on:
+  schedule:
+    - cron: "4 23 * * 0"
+  push:
+    branches:
+      - main
+
+env:
+  GH_TOKEN: "${{ github.token }}"
+  
+jobs:
+  ycycxz:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Delete workflow runs
+      uses: Mattraks/delete-workflow-runs@v2
+      with:
+        token: ${{ github.token }}
+        repository: ${{ github.repository }}
+        retain_days: 0
+        keep_minimum_runs: 0        
+        
+    - name: set up JDK 23
+      uses: actions/setup-java@v4
+      with:
+        java-version: '23'
+        distribution: 'temurin'
+
+    - uses: gradle/actions/setup-gradle@v3
+      with:
+        cache-disabled: true 
+        #gradle-version: 8.10
+       
+    - name: Build with Gradle
+      run: |
+        sudo apt install wget2 -yqq 
+        gh repo clone SagerNet/sing-box-for-android sing-box  -- --branch main
+        cd sing-box
+        wget2 -qP app/libs https://github.com/ycycxz/box.aar/raw/refs/heads/main/libbox.aar https://github.com/ycycxz/box.aar/raw/refs/heads/main/libbox-sources.jar
+        ./gradlew assembleDebug
+    - uses: actions/upload-artifact@v4
+      with:
+       name: apk
+       path: ${{ github.workspace }}/sing-box/app/build/outputs/apk/
+
+    - name: clean commit
+      run: |
+        rm -fr * .git .github
+        mkdir -p .github/workflows
+        wget -qO .github/workflows/android.yml  https://github.com/${{github.repository}}/raw/main/.github/workflows/android.yml
+        git config --global init.defaultBranch main
+        git init
+        git add .
+        git config user.name "mainians"
+        git config user.email "61817665+mainians@users.noreply.github.com"
+        git commit -m "$(date +"%Y-%m-%d")"
+        git remote add origin "https://${{ github.actor}}:${{secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
+        git push origin main --force
